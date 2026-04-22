@@ -2,23 +2,26 @@ import redis
 import os
 import time
 
+
 r = redis.Redis(
     host=os.getenv("REDIS_HOST", "redis"),
     port=6379,
     decode_responses=True
 )
 
+
 def process_job(job_id):
     print(f"Processing job {job_id}")
 
-    time.sleep(2)  # simulate work
+    time.sleep(2)
 
-    # ✅ FIX: status must match CI expectation
     r.hset(f"job:{job_id}", "status", "completed")
 
     print(f"Done: {job_id}")
 
+
 print("Worker started...")
+
 
 while True:
     try:
