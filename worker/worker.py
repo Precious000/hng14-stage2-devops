@@ -4,13 +4,18 @@ import time
 
 r = redis.Redis(
     host=os.getenv("REDIS_HOST", "redis"),
-    port=6379
+    port=6379,
+    decode_responses=True
 )
 
 def process_job(job_id):
     print(f"Processing job {job_id}")
-    time.sleep(2)
-    r.hset(f"job:{job_id}", "status", "done")
+
+    time.sleep(2)  # simulate work
+
+    # ✅ FIX: status must match CI expectation
+    r.hset(f"job:{job_id}", "status", "completed")
+
     print(f"Done: {job_id}")
 
 print("Worker started...")
@@ -21,7 +26,7 @@ while True:
 
         if job:
             _, job_id = job
-            job_id = job_id.decode()
+            job_id = job_id.decode() if isinstance(job_id, bytes) else job_id
             process_job(job_id)
         else:
             print("No job, retrying...")
