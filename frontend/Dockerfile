@@ -1,17 +1,29 @@
-FROM node:18-alpine as builder
+# ---------- BUILD ----------
+FROM node:20-alpine AS builder
+
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
-COPY . .
 
-FROM node:18-alpine
+COPY . .
+RUN npm run build
+
+# ---------- FINAL ----------
+FROM node:20-alpine
+
 WORKDIR /app
 
-RUN adduser -D appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=builder /app /app
+
+RUN chown -R appuser:appgroup /app
+
 USER appuser
 
-COPY --from=builder /app .
+EXPOSE 3000
 
-HEALTHCHECK CMD curl --fail http://localhost:3000 || exit 1
+HEALTHCHECK CMD wget --spider -q http://localhost:3000 || exit 1
 
 CMD ["npm", "start"]
