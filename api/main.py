@@ -3,10 +3,12 @@ import redis
 import uuid
 import os
 
+
 app = FastAPI()
 
+
 r = redis.Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
+    host=os.getenv("REDIS_HOST", "redis"),
     port=6379
 )
 
