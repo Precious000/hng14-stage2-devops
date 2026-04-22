@@ -2,19 +2,19 @@ FROM python:3.12-alpine
 
 WORKDIR /app
 
-# Create non-root user + install curl in ONE layer (fix DL3059 + DL3018)
+# Create non-root user + install system deps (NO VERSION PINNING)
 RUN addgroup -S appgroup \
     && adduser -S appuser -G appgroup \
-    && apk add --no-cache curl=8.9.1-r0
+    && apk add --no-cache curl ca-certificates
 
-# Install dependencies
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app
+# Copy application code
 COPY . .
 
-# Permissions
+# Fix permissions
 RUN chown -R appuser:appgroup /app
 
 USER appuser
