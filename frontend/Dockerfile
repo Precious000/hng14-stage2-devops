@@ -1,5 +1,5 @@
-FROM python:3.12-slim AS builder
-
+# ---------- BUILD STAGE ----------
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -10,22 +10,28 @@ COPY . .
 RUN npm run build || true
 
 
-FROM node:20-alpine
+# ---------- PRODUCTION STAGE ----------
+FROM node:20-slim
 
 WORKDIR /app
 
-RUN addgroup -S appgroup \
-    && adduser -S appuser -G appgroup
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 COPY --from=builder /app /app
 
-RUN npm install --production
+# Install only production deps
+RUN npm install --omit=dev
 
 USER appuser
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD wget -qO- http://localhost:3000 || exit 1
+  CMD curl -f http://localhost:3000 || exit 1
 
 CMD ["npm", "start"]
