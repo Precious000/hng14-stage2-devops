@@ -3,8 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files first
-COPY package.json package-lock.json* ./
+# Copy package files first - use wildcards to handle optional package-lock.json
+COPY package*.json ./
 
 # Install dependencies
 RUN npm install
