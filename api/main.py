@@ -29,6 +29,12 @@ def create_job():
 @app.get("/jobs/{job_id}")
 def get_job(job_id: str):
     status = r.hget(f"job:{job_id}", "status")
+
     if not status:
         return {"error": "not found"}
-    return {"job_id": job_id, "status": status.decode()}
+
+    # ✅ FIX: works for both Redis (bytes) and tests (str)
+    if isinstance(status, bytes):
+        status = status.decode()
+
+    return {"job_id": job_id, "status": status}
