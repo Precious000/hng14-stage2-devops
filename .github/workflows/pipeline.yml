@@ -18,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Python lint
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -25,13 +26,21 @@ jobs:
       - run: pip install flake8
       - run: flake8 api/main.py worker/worker.py
 
+      # ✅ FIXED: Node setup (24 instead of 20)
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
-      - run: npm install -g eslint
-      - run: eslint frontend || true
+      # ✅ FIXED: Run ESLint inside frontend
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
 
+      - name: Run ESLint
+        working-directory: frontend
+        run: npx eslint . || true
+
+      # Docker lint
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: api/Dockerfile
@@ -105,19 +114,18 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # ✅ Install Trivy CLI (reliable)
+      # Install Trivy
       - run: |
           sudo apt-get update
           sudo apt-get install -y wget
           wget -qO- https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.tar.gz | tar zx
           sudo mv trivy /usr/local/bin/
 
-      # ✅ Generate SARIF properly
+      # ✅ Keep scans non-blocking but valid
       - run: trivy image --format sarif --output trivy-api-results.sarif api:latest || true
       - run: trivy image --format sarif --output trivy-worker-results.sarif worker:latest || true
       - run: trivy image --format sarif --output trivy-frontend-results.sarif frontend:latest || true
 
-      # ✅ Upload separately (required)
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-api-results.sarif
@@ -149,7 +157,6 @@ jobs:
       - name: Start services
         run: docker compose up -d --build
 
-      # ✅ FIXED WAIT LOGIC (this was your main failure)
       - name: Wait for API
         run: |
           echo "Waiting for API..."
