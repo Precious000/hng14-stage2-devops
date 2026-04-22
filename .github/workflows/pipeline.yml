@@ -4,6 +4,9 @@ on:
   push:
     branches: ["*"]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   lint:
@@ -29,12 +32,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Create .env
+        run: |
+          echo "REDIS_HOST=localhost" >> .env
+          echo "REDIS_PORT=6379" >> .env
+
       - name: Install dependencies
         run: |
           pip install fastapi uvicorn redis pytest httpx
 
+      # 🔥 FIX: MAKE PYTHON FIND YOUR api MODULE
       - name: Run tests
         run: pytest api/tests
+        env:
+          PYTHONPATH: .
 
 
   build:
@@ -75,11 +86,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Create .env
+        run: |
+          echo "REDIS_HOST=redis" >> .env
+          echo "REDIS_PORT=6379" >> .env
+          echo "API_HOST=api" >> .env
+          echo "API_PORT=8000" >> .env
+
       - name: Start full system
         run: docker compose up -d --build
 
+      # Better than blind sleep (but still simple)
       - name: Wait for services
-        run: sleep 25
+        run: sleep 30
 
       - name: Test API health
         run: curl --fail http://localhost:8000/health
@@ -88,7 +107,9 @@ jobs:
         run: |
           curl -X POST http://localhost:8000/jobs
 
+      # 🔥 IMPORTANT: always shut down even if test fails
       - name: Shutdown system
+        if: always()
         run: docker compose down
 
 
