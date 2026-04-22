@@ -3,3 +3,7 @@ api/venv/
 __pycache__/
 *.pyc
 .env
+venv/
+api/venv/
+venv/
+api/venv/
