@@ -18,7 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Python lint
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -26,12 +25,10 @@ jobs:
       - run: pip install flake8
       - run: flake8 api/main.py worker/worker.py
 
-      # Node (fixed to 24)
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      # Frontend lint
       - name: Install frontend deps
         working-directory: frontend
         run: npm install
@@ -40,7 +37,6 @@ jobs:
         working-directory: frontend
         run: npx eslint . || true
 
-      # Docker lint
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: api/Dockerfile
@@ -114,23 +110,27 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # ✅ FIXED: Reliable Trivy install (no pipe corruption)
-      - name: Install Trivy safely
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget tar
+      # ✅ BEST FIX: use official Trivy action (no install issues ever)
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          image-ref: api:latest
+          format: sarif
+          output: trivy-api-results.sarif
 
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.tar.gz -O trivy.tar.gz
+      - name: Scan Worker image
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          image-ref: worker:latest
+          format: sarif
+          output: trivy-worker-results.sarif
 
-          tar -xzf trivy.tar.gz
-          sudo mv trivy /usr/local/bin/
-
-          trivy --version
-
-      # Scan images (non-blocking)
-      - run: trivy image --format sarif --output trivy-api-results.sarif api:latest || true
-      - run: trivy image --format sarif --output trivy-worker-results.sarif worker:latest || true
-      - run: trivy image --format sarif --output trivy-frontend-results.sarif frontend:latest || true
+      - name: Scan Frontend image
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          image-ref: frontend:latest
+          format: sarif
+          output: trivy-frontend-results.sarif
 
       - uses: github/codeql-action/upload-sarif@v4
         with:
