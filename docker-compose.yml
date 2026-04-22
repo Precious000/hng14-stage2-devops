@@ -1,9 +1,8 @@
 services:
 
   redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    # ❌ REMOVED PORT EXPOSURE
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -11,14 +10,19 @@ services:
       retries: 10
     restart: always
     networks:
-      - appnet
+      - app-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
 
   api:
     build: ./api
-    ports:                # ✅ FIX (VERY IMPORTANT)
+    ports:
       - "8000:8000"
-    environment:
-      - REDIS_HOST=redis
+    env_file:
+      - .env   # ✅ REQUIRED (no hardcoding)
     depends_on:
       redis:
         condition: service_healthy
@@ -29,30 +33,48 @@ services:
       retries: 10
     restart: always
     networks:
-      - appnet
+      - app-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
   worker:
     build: ./worker
-    environment:
-      - REDIS_HOST=redis
+    env_file:
+      - .env
     depends_on:
       redis:
         condition: service_healthy
     restart: always
     networks:
-      - appnet
+      - app-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
   frontend:
     build: ./frontend
     ports:
       - "80:3000"
+    env_file:
+      - .env
     depends_on:
       api:
         condition: service_healthy
     restart: always
     networks:
-      - appnet
+      - app-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
 networks:
-  appnet:
+  app-net:
+    name: app-net   # ✅ CRITICAL FIX
     driver: bridge
