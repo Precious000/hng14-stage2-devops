@@ -3,13 +3,12 @@ import redis
 import uuid
 import os
 
-
 app = FastAPI()
-
 
 r = redis.Redis(
     host=os.getenv("REDIS_HOST", "redis"),
-    port=6379
+    port=6379,
+    decode_responses=True
 )
 
 
@@ -21,8 +20,10 @@ def health():
 @app.post("/jobs")
 def create_job():
     job_id = str(uuid.uuid4())
+
     r.lpush("job", job_id)
     r.hset(f"job:{job_id}", "status", "queued")
+
     return {"job_id": job_id}
 
 
@@ -33,8 +34,7 @@ def get_job(job_id: str):
     if not status:
         return {"error": "not found"}
 
-    # ✅ FIX: works for both Redis (bytes) and tests (str)
-    if isinstance(status, bytes):
-        status = status.decode()
-
-    return {"job_id": job_id, "status": status}
+    return {
+        "job_id": job_id,
+        "status": status
+    }

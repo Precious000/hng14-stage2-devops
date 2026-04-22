@@ -1,40 +1,31 @@
-# -------- Stage 1: Build --------
-FROM python:3.11-slim AS builder
+FROM python:3.12-alpine AS builder
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-# install dependencies into a clean layer
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
-# -------- Stage 2: Runtime --------
-FROM python:3.11-slim
+FROM python:3.12-alpine
 
 WORKDIR /app
 
-# create non-root user (required by grader)
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# copy dependencies from builder (safe + standard approach)
-COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
-COPY --from=builder /usr/local/bin /usr/local/bin
+RUN addgroup -S appgroup \
+    && adduser -S appuser -G appgroup \
+    && apk add --no-cache curl
 
-# copy app code
+COPY --from=builder /install /usr/local
 COPY . .
 
-# fix permissions
 RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-ENV PYTHONUNBUFFERED=1
-
-# -------- HEALTHCHECK (FIXED FOR GRADERS) --------
-# IMPORTANT: pgrep can sometimes fail in minimal images
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-  CMD python -c "import redis; print('ok')" || exit 1
+  CMD pgrep -f worker.py > /dev/null || exit 1
 
-# run worker
 CMD ["python", "worker.py"]
