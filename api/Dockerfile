@@ -1,5 +1,3 @@
-# hadolint ignore=DL3018
-
 FROM python:3.12-alpine AS builder
 
 WORKDIR /app
@@ -7,6 +5,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache build-base
 
 COPY requirements.txt .
@@ -21,7 +20,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+# hadolint ignore=DL3018
+RUN addgroup -S appgroup \
+    && adduser -S appuser -G appgroup \
     && apk add --no-cache curl ca-certificates wget \
     && update-ca-certificates
 
