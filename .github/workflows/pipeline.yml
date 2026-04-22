@@ -24,11 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install dependencies
-        run: pip install pytest
+        run: |
+          pip install fastapi uvicorn redis pytest httpx
 
       - name: Run tests
-        run: pytest
+        run: pytest api/tests
 
 
   build:
@@ -79,7 +85,8 @@ jobs:
         run: curl --fail http://localhost:8000/health
 
       - name: Test job creation
-        run: curl -X POST http://localhost:8000/jobs
+        run: |
+          curl -X POST http://localhost:8000/jobs
 
       - name: Shutdown system
         run: docker compose down
