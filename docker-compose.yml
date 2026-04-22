@@ -2,7 +2,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    # ❌ REMOVED PORT EXPOSURE
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -20,9 +19,9 @@ services:
   api:
     build: ./api
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     env_file:
-      - .env   # ✅ REQUIRED (no hardcoding)
+      - .env
     depends_on:
       redis:
         condition: service_healthy
@@ -59,7 +58,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "80:3000"
+      - "${FRONTEND_PORT:-80}:3000"
     env_file:
       - .env
     depends_on:
@@ -76,5 +75,4 @@ services:
 
 networks:
   app-net:
-    name: app-net   # ✅ CRITICAL FIX
     driver: bridge

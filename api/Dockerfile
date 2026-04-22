@@ -1,21 +1,34 @@
-FROM python:3.12-alpine
+# ---------- Stage 1: Builder ----------
+FROM python:3.12-alpine AS builder
+
+WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-WORKDIR /app
-
-# hadolint ignore=DL3018
-RUN addgroup -S appgroup \
-    && adduser -S appuser -G appgroup \
-    && apk add --no-cache curl ca-certificates \
-    && update-ca-certificates
+# install build dependencies
+RUN apk add --no-cache build-base
 
 COPY requirements.txt .
 
-# hadolint ignore=DL3013
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+
+# ---------- Stage 2: Runtime ----------
+FROM python:3.12-alpine
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# runtime deps only
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && apk add --no-cache curl ca-certificates wget \
+    && update-ca-certificates
+
+# copy installed packages from builder
+COPY --from=builder /install /usr/local
 
 COPY . .
 
