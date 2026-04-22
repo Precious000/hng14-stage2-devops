@@ -1,34 +1,24 @@
-# ---------- BUILD ----------
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files first - use wildcards to handle optional package-lock.json
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the application
-COPY . .
-
-RUN npm run build
-
-# ---------- FINAL ----------
-FROM node:20-alpine
+FROM python:3.12-alpine
 
 WORKDIR /app
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-COPY --from=builder /app /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# ✅ CRITICAL FIX: curl + SSL certs for healthcheck
+RUN apk add --no-cache curl ca-certificates
 
 RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-EXPOSE 3000
+EXPOSE 8000
 
-HEALTHCHECK CMD wget --spider -q http://localhost:3000 || exit 1
+# safer + SSL-safe healthcheck
+HEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["npm", "start"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
