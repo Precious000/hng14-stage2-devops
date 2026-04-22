@@ -2,73 +2,54 @@ services:
 
   redis:
     image: redis:7
-    networks:
-      - appnet
-    restart: always
-
-    # ✅ FIX: required for depends_on: condition: service_healthy
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: always
+    networks:
+      - appnet
 
   api:
     build: ./api
-    env_file:
-      - .env
+    environment:
+      - REDIS_HOST=redis
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
     networks:
       - appnet
-
-    # (kept + ensures grader passes resource checks)
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
-
-    restart: always
 
   worker:
     build: ./worker
-    env_file:
-      - .env
+    environment:
+      - REDIS_HOST=redis
     depends_on:
       redis:
         condition: service_healthy
+    restart: always
     networks:
       - appnet
-
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
-
-    restart: always
 
   frontend:
     build: ./frontend
     ports:
       - "80:3000"
-    env_file:
-      - .env
     depends_on:
       api:
         condition: service_healthy
+    restart: always
     networks:
       - appnet
-
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
-
-    restart: always
 
 networks:
   appnet:
