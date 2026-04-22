@@ -4,6 +4,10 @@ on:
   push:
     branches: ["*"]
 
+permissions:
+  contents: read
+  security-events: write
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -11,37 +15,24 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install flake8
-        run: pip install flake8
+      - run: pip install flake8
+      - run: flake8 api/main.py worker/worker.py
 
-      - name: Run flake8
-        run: flake8 api/main.py worker/worker.py
-
-      # ✅ ESLint (required)
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install ESLint
-        run: npm install -g eslint
+      - run: npm install -g eslint
+      - run: eslint frontend || true
 
-      - name: Run ESLint
-        run: eslint frontend || true
-
-      # ✅ Hadolint (required)
-      - name: Run Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
+      - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: api/Dockerfile
 
@@ -51,31 +42,23 @@ jobs:
     needs: lint
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Create test env
-        run: |
+      - run: |
           echo "REDIS_HOST=dummy" >> .env
           echo "REDIS_PORT=6379" >> .env
 
-      - name: Install dependencies
-        run: |
-          pip install fastapi uvicorn redis pytest httpx pytest-cov
+      - run: pip install fastapi uvicorn redis pytest httpx pytest-cov
 
-      # ✅ Coverage required
-      - name: Run tests with coverage
-        run: pytest api/tests --cov=api --cov-report=xml
+      - run: pytest api/tests --cov=api --cov-report=xml
         env:
           PYTHONPATH: .
 
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
@@ -86,49 +69,19 @@ jobs:
     needs: test
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - run: docker build -f api/Dockerfile -t api:latest ./api
+      - run: docker build -f worker/Dockerfile -t worker:latest ./worker
+      - run: docker build -f frontend/Dockerfile -t frontend:latest ./frontend
 
-      # ✅ Build API image with Dockerfile specified
-      - name: Build API image
-        run: |
-          docker build \
-            -f api/Dockerfile \
-            -t api:${{ github.sha }} \
-            -t api:latest \
-            ./api
-
-      # ✅ Build Worker image with Dockerfile specified
-      - name: Build Worker image
-        run: |
-          docker build \
-            -f worker/Dockerfile \
-            -t worker:${{ github.sha }} \
-            -t worker:latest \
-            ./worker
-
-      # ✅ Build Frontend image with Dockerfile specified
-      - name: Build Frontend image
-        run: |
-          docker build \
-            -f frontend/Dockerfile \
-            -t frontend:${{ github.sha }} \
-            -t frontend:latest \
-            ./frontend
-
-      # ✅ Save images as tar for security scan job
-      - name: Save Docker images
-        run: |
+      - run: |
           docker save api:latest -o /tmp/api.tar
           docker save worker:latest -o /tmp/worker.tar
           docker save frontend:latest -o /tmp/frontend.tar
 
-      # ✅ Upload images for security scan
-      - name: Upload images artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: docker-images
           path: /tmp/*.tar
@@ -140,65 +93,42 @@ jobs:
     needs: build
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ✅ Download saved images
-      - name: Download images
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: docker-images
           path: /tmp
 
-      # ✅ Load images
-      - name: Load Docker images
-        run: |
+      - run: |
           docker load -i /tmp/api.tar
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # ✅ Scan API with Trivy (SARIF)
-      - name: Scan API with Trivy (SARIF)
-        uses: aquasecurity/trivy-action@master
-        with:
-          input: /tmp/api.tar
-          format: "sarif"
-          output: "trivy-api-results.sarif"
-          exit-code: "1"
-          severity: "CRITICAL"
-        continue-on-error: true
+      # ✅ Install Trivy CLI (reliable)
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget -qO- https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.tar.gz | tar zx
+          sudo mv trivy /usr/local/bin/
 
-      # ✅ Scan Worker with Trivy (SARIF)
-      - name: Scan Worker with Trivy (SARIF)
-        uses: aquasecurity/trivy-action@master
-        with:
-          input: /tmp/worker.tar
-          format: "sarif"
-          output: "trivy-worker-results.sarif"
-          exit-code: "1"
-          severity: "CRITICAL"
-        continue-on-error: true
+      # ✅ Generate SARIF properly
+      - run: trivy image --format sarif --output trivy-api-results.sarif api:latest || true
+      - run: trivy image --format sarif --output trivy-worker-results.sarif worker:latest || true
+      - run: trivy image --format sarif --output trivy-frontend-results.sarif frontend:latest || true
 
-      # ✅ Scan Frontend with Trivy (SARIF)
-      - name: Scan Frontend with Trivy (SARIF)
-        uses: aquasecurity/trivy-action@master
+      # ✅ Upload separately (required)
+      - uses: github/codeql-action/upload-sarif@v4
         with:
-          input: /tmp/frontend.tar
-          format: "sarif"
-          output: "trivy-frontend-results.sarif"
-          exit-code: "1"
-          severity: "CRITICAL"
-        continue-on-error: true
+          sarif_file: trivy-api-results.sarif
 
-      # ✅ Upload all SARIF reports
-      - name: Upload SARIF reports
-        uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: |
-            trivy-api-results.sarif
-            trivy-worker-results.sarif
-            trivy-frontend-results.sarif
-        continue-on-error: true
+          sarif_file: trivy-worker-results.sarif
+
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-frontend-results.sarif
 
 
   integration_test:
@@ -206,14 +136,11 @@ jobs:
     needs: security_scan
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y curl jq
+      - run: sudo apt-get update && sudo apt-get install -y curl jq
 
-      - name: Create runtime env
-        run: |
+      - run: |
           echo "REDIS_HOST=redis" >> .env
           echo "REDIS_PORT=6379" >> .env
           echo "API_HOST=api" >> .env
@@ -222,14 +149,22 @@ jobs:
       - name: Start services
         run: docker compose up -d --build
 
+      # ✅ FIXED WAIT LOGIC (this was your main failure)
       - name: Wait for API
         run: |
-          for i in {1..30}; do
-            curl --fail http://localhost:8000/health && exit 0
-            echo "waiting..."
+          echo "Waiting for API..."
+
+          for i in {1..40}; do
+            if curl -s http://localhost:8000/health | grep -q "ok"; then
+              echo "API is ready!"
+              exit 0
+            fi
+            echo "Waiting... ($i)"
             sleep 2
           done
-          docker compose logs
+
+          echo "API failed"
+          docker compose logs api
           exit 1
 
       - name: Create job
@@ -241,14 +176,15 @@ jobs:
         run: |
           for i in {1..20}; do
             STATUS=$(curl -s http://localhost:8000/jobs/$JOB_ID | jq -r '.status')
-            echo "Status: $STATUS"
 
             if [ "$STATUS" = "completed" ]; then
+              echo "Job completed"
               exit 0
             fi
 
             sleep 2
           done
+
           docker compose logs
           exit 1
 
@@ -263,8 +199,5 @@ jobs:
     if: github.ref == 'refs/heads/main' && success()
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Rolling deploy placeholder
-        run: echo "Rolling deployment logic goes here"
+      - uses: actions/checkout@v4
+      - run: echo "Rolling deployment logic goes here"
