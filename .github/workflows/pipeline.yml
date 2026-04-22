@@ -91,38 +91,20 @@ jobs:
       - name: Build API
         run: |
           docker build \
-            --cache-from=type=gha \
-            --cache-to=type=gha,mode=max \
             -f api/Dockerfile \
-            -t localhost:5000/api:${{ github.sha }} \
             -t localhost:5000/api:latest ./api
 
       - name: Build Worker
         run: |
           docker build \
-            --cache-from=type=gha \
-            --cache-to=type=gha,mode=max \
             -f worker/Dockerfile \
-            -t localhost:5000/worker:${{ github.sha }} \
             -t localhost:5000/worker:latest ./worker
 
       - name: Build Frontend
         run: |
           docker build \
-            --cache-from=type=gha \
-            --cache-to=type=gha,mode=max \
             -f frontend/Dockerfile \
-            -t localhost:5000/frontend:${{ github.sha }} \
             -t localhost:5000/frontend:latest ./frontend
-
-      - name: Push images
-        run: |
-          docker push localhost:5000/api:${{ github.sha }}
-          docker push localhost:5000/api:latest
-          docker push localhost:5000/worker:${{ github.sha }}
-          docker push localhost:5000/worker:latest
-          docker push localhost:5000/frontend:${{ github.sha }}
-          docker push localhost:5000/frontend:latest
 
       - name: Save images
         run: |
@@ -155,7 +137,13 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # ✅ FIXED: correct image names AFTER docker load
+      # ✅ FIX: retag after load (CRITICAL FIX)
+      - name: Retag images for scanning
+        run: |
+          docker tag localhost:5000/api:latest api:latest
+          docker tag localhost:5000/worker:latest worker:latest
+          docker tag localhost:5000/frontend:latest frontend:latest
+
       - uses: aquasecurity/trivy-action@v0.24.0
         with:
           image-ref: api:latest
