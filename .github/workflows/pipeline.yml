@@ -154,9 +154,10 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
+      # ✅ FIXED IMAGE REFERENCES
       - uses: aquasecurity/trivy-action@v0.24.0
         with:
-          image-ref: api:latest
+          image-ref: localhost:5000/api:latest
           format: sarif
           output: trivy-api.sarif
           severity: CRITICAL
@@ -164,7 +165,7 @@ jobs:
 
       - uses: aquasecurity/trivy-action@v0.24.0
         with:
-          image-ref: worker:latest
+          image-ref: localhost:5000/worker:latest
           format: sarif
           output: trivy-worker.sarif
           severity: CRITICAL
@@ -172,7 +173,7 @@ jobs:
 
       - uses: aquasecurity/trivy-action@v0.24.0
         with:
-          image-ref: frontend:latest
+          image-ref: localhost:5000/frontend:latest
           format: sarif
           output: trivy-frontend.sarif
           severity: CRITICAL
