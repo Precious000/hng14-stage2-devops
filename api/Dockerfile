@@ -9,16 +9,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# ✅ CRITICAL FIX: curl + SSL certs for healthcheck
-RUN apk add --no-cache curl ca-certificates
+# ✅ FIX: combine RUN + pin packages (hadolint clean)
+RUN apk add --no-cache curl=8.10.1-r0 ca-certificates=20240226-r0
 
-RUN chown -R appuser:appgroup /app
+RUN update-ca-certificates && chown -R appuser:appgroup /app
 
 USER appuser
 
 EXPOSE 8000
 
-# safer + SSL-safe healthcheck
 HEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
