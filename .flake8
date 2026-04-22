@@ -1,0 +1,3 @@
+[flake8]
+exclude = venv,api/venv,__pycache__,.git,*.pyc
+max-line-length = 120
