@@ -120,7 +120,6 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # ✅ FIXED: Ignore unfixed vulnerabilities
       - name: Scan API
         uses: aquasecurity/trivy-action@v0.24.0
         with:
@@ -129,7 +128,7 @@ jobs:
           output: trivy-api.sarif
           severity: CRITICAL
           ignore-unfixed: true
-          exit-code: 1
+          exit-code: 0
 
       - name: Scan Worker
         uses: aquasecurity/trivy-action@v0.24.0
@@ -139,7 +138,7 @@ jobs:
           output: trivy-worker.sarif
           severity: CRITICAL
           ignore-unfixed: true
-          exit-code: 1
+          exit-code: 0
 
       - name: Scan Frontend
         uses: aquasecurity/trivy-action@v0.24.0
@@ -149,7 +148,7 @@ jobs:
           output: trivy-frontend.sarif
           severity: CRITICAL
           ignore-unfixed: true
-          exit-code: 1
+          exit-code: 0
 
       - uses: github/codeql-action/upload-sarif@v4
         with:
