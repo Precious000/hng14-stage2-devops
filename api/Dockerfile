@@ -1,36 +1,29 @@
-# ---------- BUILD STAGE ----------
-FROM python:3.12-alpine AS builder
+# ---------- BUILD ----------
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY package*.json ./
+RUN npm install
 
-ENV PIP_NO_CACHE_DIR=1
-
-RUN pip install --user -r requirements.txt
-# ---------- FINAL STAGE ----------
-FROM python:3.12-alpine
-
-WORKDIR /app
-
-# ✅ VERY IMPORTANT: grader-friendly user creation
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup -h /home/appuser
-
-# ✅ copy only installed packages
-COPY --from=builder /root/.local /home/appuser/.local
-
-# ✅ copy app code AFTER (clean separation)
 COPY . .
+RUN npm run build
 
-# ✅ ensure correct PATH
-ENV PATH=/home/appuser/.local/bin:$PATH
+# ---------- FINAL ----------
+FROM node:20-alpine
 
-# ✅ permissions
+WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=builder /app /app
+
 RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-# ✅ required healthcheck
-HEALTHCHECK CMD wget --spider -q http://localhost:8000/health || exit 1
+EXPOSE 3000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK CMD wget --spider -q http://localhost:3000 || exit 1
+
+CMD ["npm", "start"]
