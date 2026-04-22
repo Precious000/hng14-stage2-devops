@@ -110,7 +110,7 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # ✅ BEST FIX: use official Trivy action (no install issues ever)
+      # Scan images
       - name: Scan API image
         uses: aquasecurity/trivy-action@v0.24.0
         with:
@@ -132,17 +132,21 @@ jobs:
           format: sarif
           output: trivy-frontend-results.sarif
 
+      # ✅ FIX: unique category for each upload
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-api-results.sarif
+          category: api
 
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-worker-results.sarif
+          category: worker
 
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-frontend-results.sarif
+          category: frontend
 
 
   integration_test:
