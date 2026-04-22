@@ -3,10 +3,15 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy package files first
+COPY package.json package-lock.json* ./
+
+# Install dependencies
 RUN npm install
 
+# Copy the rest of the application
 COPY . .
+
 RUN npm run build
 
 # ---------- FINAL ----------
