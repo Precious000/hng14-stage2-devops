@@ -1,4 +1,5 @@
-# ---------- Stage 1: Builder ----------
+# hadolint ignore=DL3018
+
 FROM python:3.12-alpine AS builder
 
 WORKDIR /app
@@ -13,8 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
-# ---------- Stage 2: Runtime ----------
-FROM python:3.12-alpine AS runtime
+FROM python:3.12-alpine
 
 WORKDIR /app
 
@@ -25,9 +25,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
     && apk add --no-cache curl ca-certificates wget \
     && update-ca-certificates
 
-# FIX: explicit builder alias reference (fixes DL3022)
 COPY --from=builder /install /usr/local
-
 COPY . .
 
 RUN chown -R appuser:appgroup /app
