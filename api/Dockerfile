@@ -6,8 +6,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# install build dependencies
-RUN apk add --no-cache build-base
+# build dependencies (version-pinned to satisfy hadolint)
+RUN apk add --no-cache \
+    build-base=0.5-r3
 
 COPY requirements.txt .
 
@@ -22,12 +23,15 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# runtime deps only
+# runtime deps only (version-pinned to satisfy hadolint)
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && apk add --no-cache curl ca-certificates wget \
+    && apk add --no-cache \
+    curl=8.10.1-r0 \
+    ca-certificates=20241010-r0 \
+    wget=1.24.5-r0 \
     && update-ca-certificates
 
-# copy installed packages from builder
+# copy installed python packages
 COPY --from=builder /install /usr/local
 
 COPY . .
