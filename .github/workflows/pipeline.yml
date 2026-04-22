@@ -26,12 +26,12 @@ jobs:
       - run: pip install flake8
       - run: flake8 api/main.py worker/worker.py
 
-      # ✅ FIXED: Node setup (24 instead of 20)
+      # Node (fixed to 24)
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      # ✅ FIXED: Run ESLint inside frontend
+      # Frontend lint
       - name: Install frontend deps
         working-directory: frontend
         run: npm install
@@ -114,14 +114,20 @@ jobs:
           docker load -i /tmp/worker.tar
           docker load -i /tmp/frontend.tar
 
-      # Install Trivy
-      - run: |
+      # ✅ FIXED: Reliable Trivy install (no pipe corruption)
+      - name: Install Trivy safely
+        run: |
           sudo apt-get update
-          sudo apt-get install -y wget
-          wget -qO- https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.tar.gz | tar zx
+          sudo apt-get install -y wget tar
+
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.tar.gz -O trivy.tar.gz
+
+          tar -xzf trivy.tar.gz
           sudo mv trivy /usr/local/bin/
 
-      # ✅ Keep scans non-blocking but valid
+          trivy --version
+
+      # Scan images (non-blocking)
       - run: trivy image --format sarif --output trivy-api-results.sarif api:latest || true
       - run: trivy image --format sarif --output trivy-worker-results.sarif worker:latest || true
       - run: trivy image --format sarif --output trivy-frontend-results.sarif frontend:latest || true
