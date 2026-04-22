@@ -115,7 +115,7 @@ jobs:
         with:
           driver-opts: network=host
 
-      - name: Set image tags
+      - name: Set image SHA tag
         run: echo "SHA_TAG=${GITHUB_SHA::8}" >> $GITHUB_ENV
 
       - name: Build and push API
@@ -171,19 +171,21 @@ jobs:
 
 
 # ========================= SECURITY =========================
-  # ========================= SECURITY =========================
   security_scan:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download image artifacts
         uses: actions/download-artifact@v4
         with:
           name: docker-images
           path: /tmp
 
-      - name: Load Docker images
+      - name: Load and retag Docker images
         run: |
           docker load -i /tmp/api.tar
           docker load -i /tmp/worker.tar
@@ -192,35 +194,27 @@ jobs:
           docker tag localhost:5000/worker:latest worker:latest
           docker tag localhost:5000/frontend:latest frontend:latest
 
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
       - name: Scan API image
-        uses: aquasecurity/trivy-action@v0.24.0
-        with:
-          image-ref: api:latest
-          format: sarif
-          output: trivy-api.sarif
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: 1
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed \
+            --ignorefile .trivyignore \
+            --format sarif --output trivy-api.sarif api:latest
 
       - name: Scan Worker image
-        uses: aquasecurity/trivy-action@v0.24.0
-        with:
-          image-ref: worker:latest
-          format: sarif
-          output: trivy-worker.sarif
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: 1
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed \
+            --ignorefile .trivyignore \
+            --format sarif --output trivy-worker.sarif worker:latest
 
       - name: Scan Frontend image
-        uses: aquasecurity/trivy-action@v0.24.0
-        with:
-          image-ref: frontend:latest
-          format: sarif
-          output: trivy-frontend.sarif
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: 1
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed \
+            --ignorefile .trivyignore \
+            --format sarif --output trivy-frontend.sarif frontend:latest
 
       - name: Upload API SARIF
         uses: github/codeql-action/upload-sarif@v4
@@ -239,6 +233,7 @@ jobs:
         with:
           sarif_file: trivy-frontend.sarif
           category: frontend
+
 
 # ========================= INTEGRATION =========================
   integration_test:
