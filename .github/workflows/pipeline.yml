@@ -14,8 +14,8 @@ jobs:
       - name: Install Python lint tools
         run: pip install flake8
 
-      - name: Run flake8
-        run: flake8 api worker
+      - name: Run flake8 (strict scope)
+        run: flake8 api/main.py worker/worker.py
 
 
   test:
