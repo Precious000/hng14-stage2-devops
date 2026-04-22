@@ -1,7 +1,6 @@
 import redis
 import os
 import time
-import uuid
 
 
 r = redis.Redis(
