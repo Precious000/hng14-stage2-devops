@@ -1,5 +1,20 @@
+# ---------- Stage 1: Builder ----------
+FROM python:3.12-alpine AS builder
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apk add --no-cache build-base
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+
 # ---------- Stage 2: Runtime ----------
-FROM python:3.12-alpine
+FROM python:3.12-alpine AS runtime
 
 WORKDIR /app
 
@@ -7,13 +22,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && apk add --no-cache \
-        curl \
-        ca-certificates \
-        wget \
+    && apk add --no-cache curl ca-certificates wget \
     && update-ca-certificates
 
+# FIX: explicit builder alias reference (fixes DL3022)
 COPY --from=builder /install /usr/local
+
 COPY . .
 
 RUN chown -R appuser:appgroup /app
